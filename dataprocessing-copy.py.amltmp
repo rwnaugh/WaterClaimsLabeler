@@ -1,0 +1,54 @@
+import re
+import string, nltk
+from nltk.corpus import stopwords
+nltk.download("stopwords")
+import spacy
+spacy.cli.download("en_core_web_sm")
+nlp = spacy.load("en_core_web_sm")
+
+#Function to fix the headers of data read in from blob storage
+def fix_headers(df):
+    headers = df.iloc[0]
+    df = df[1:]
+    df.columns = headers
+    return df
+
+#Function that performs text cleaning -- can add more actions as neccesary
+def clean(text):
+    #Removing URLs
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+    #Email addresses
+    
+    #Removing Numbers
+    text = re.sub(r'\d+','',text)
+    #Removing irregular characters
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    #Removing extra whitespace
+    text = re.sub(r'^\s*|\s\s*', ' ', text).strip()
+    #Removing blanked(x'ed) out info
+    text = re.sub(r'xx', '', text)
+    #text = [word.lower for word in text if word.lower not in stopwords.words('english')]
+    return text
+
+def remove_names(df, txt_col_name):
+    doc = list(nlp.pipe(df[txt_col_name].to_numpy()))
+    removed_names = []
+    for i in [token.text for token in doc]:
+        if i in [ent.text for ent in doc.ents if ent.label_ == 'PERSON']:
+            continue
+        else:
+            removed_names.append(i)
+
+#Function that combines claim notes for claims with multiple iterations
+#Also returns the notes in lower case
+def combine_notes(str_lst):
+    clm_note = ""
+    for i in str_lst:
+        if type(i) != float:
+            clm_note = clm_note + str(i) + '. '
+    return clm_note.lower()
+
+#Applying the cleaning function to a specific column - takes dataframe & text/notes column name as input & outputs the cleaned text column
+def text_cleaning(df, txt_col_name):
+    df[txt_col_name] = df[txt_col_name].apply(clean)
+    return df[txt_col_name]
